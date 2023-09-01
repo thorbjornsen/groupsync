@@ -15,6 +15,11 @@ public class Configuration
     public final static String DEST_TYPE = "destination.type";
 
     //
+    // Common
+    //
+    public final static String IGNORE_EMPTY_GROUPS = "ignore-empty-groups";
+
+    //
     // LDAP
     //
     public final static String SOURCE_LDAP_HOST = "source.ldap.host";
@@ -29,7 +34,13 @@ public class Configuration
     public final static String SOURCE_LDAP_GROUP_SEARCHFILTER = "source.ldap.group.searchfilter";
     public final static String SOURCE_LDAP_GROUP_ATTRIBUTES = "source.ldap.group.attributes";
     public final static String SOURCE_LDAP_USER_NAME_ATTRIBUTE = "source.ldap.user.nameattribute";
-    public final static String SOURCE_LDAP_IGNORE_EMPTY_GROUPS = "source.ldap.group.ignoreempty";
+
+    //
+    // Active Directory
+    //
+    public final static String SOURCE_AZURE_TENANT_ID = "source.azure.tenant-id";
+    public final static String SOURCE_AZURE_CLIENT_ID = "source.azure.client-id";
+    public final static String SOURCE_AZURE_CLIENT_SECRET = "source.azure.client-secret";
 
     //
     // Ranger
@@ -39,6 +50,7 @@ public class Configuration
     public final static String DEST_RANGER_PASS = "destination.ranger.password";
     public final static String DEST_RANGER_DELETE_USERS = "destination.ranger.delete.users";
     public final static String DEST_RANGER_DELETE_GROUPS = "destination.ranger.delete.groups";
+    public final static String DEST_RANGER_UPLOAD_LIMIT = "destination.ranger.upload.limit";
     public final static String DEST_RANGER_DRY_RUN = "destination.ranger.dryrun";
 
     private final Properties configuration;

@@ -1,15 +1,20 @@
 package com.starburstdata;
 
+import com.starburstdata.azure.AzureClient;
+import com.starburstdata.azure.AzureConfig;
+import com.starburstdata.azure.AzureException;
 import com.starburstdata.ldap.LDAPClient;
 import com.starburstdata.ldap.LDAPConfig;
 import com.starburstdata.ldap.LDAPException;
 import com.starburstdata.ranger.RangerClient;
 import com.starburstdata.ranger.RangerConfig;
 import com.starburstdata.ranger.RangerException;
-import com.starburstdata.ranger.VXGroupUserInfo;
-import com.starburstdata.ranger.VXUserGroupInfo;
+import com.starburstdata.ranger.model.VXGroupUserInfo;
+import com.starburstdata.ranger.model.VXUserGroupInfo;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -90,6 +95,11 @@ public class Main
         if( config.exists( Configuration.DEST_RANGER_DELETE_GROUPS ) )
         {
             builder.deleteGroups( config.get( Configuration.DEST_RANGER_DELETE_GROUPS ) );
+        }
+
+        if( config.exists( Configuration.DEST_RANGER_UPLOAD_LIMIT ) )
+        {
+            builder.uploadLimit( config.get( Configuration.DEST_RANGER_UPLOAD_LIMIT ) );
         }
 
         if( config.exists( Configuration.DEST_RANGER_DRY_RUN ) )
@@ -195,9 +205,54 @@ public class Main
             builder.groupAttributes( config.get( Configuration.SOURCE_LDAP_GROUP_ATTRIBUTES ) );
         }
 
-        if( config.exists( Configuration.SOURCE_LDAP_IGNORE_EMPTY_GROUPS ) )
+        if( config.exists( Configuration.IGNORE_EMPTY_GROUPS ) )
         {
-            builder.ignoreEmptyGroups( config.get( Configuration.SOURCE_LDAP_IGNORE_EMPTY_GROUPS ) );
+            builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
+        }
+
+        return builder.build();
+    }
+
+    public static AzureConfig getAzureConfiguration( Configuration config ) throws AzureException
+    {
+        //
+        // Mandatory
+        //
+
+        boolean error = false;
+
+        if( !config.exists( Configuration.SOURCE_AZURE_TENANT_ID ) )
+        {
+            logger.log( Level.SEVERE, String.format( missing, Configuration.SOURCE_AZURE_TENANT_ID ) );
+            error = true;
+        }
+
+        if( !config.exists( Configuration.SOURCE_AZURE_CLIENT_ID ) )
+        {
+            logger.log( Level.SEVERE, String.format( missing, Configuration.SOURCE_AZURE_CLIENT_ID ) );
+            error = true;
+        }
+
+        if( !config.exists( Configuration.SOURCE_AZURE_CLIENT_SECRET ) )
+        {
+            logger.log( Level.SEVERE, String.format( missing, Configuration.SOURCE_AZURE_CLIENT_SECRET ) );
+            error = true;
+        }
+
+        if( error )
+        {
+            throw new AzureException( "Failed to load Azure configuration" );
+        }
+
+        var builder = new AzureConfig.Builder().tenantId( config.get( Configuration.SOURCE_AZURE_TENANT_ID ) ).clientId( config.get( Configuration.SOURCE_AZURE_CLIENT_ID ) ).clientSecret( config.get( Configuration.SOURCE_AZURE_CLIENT_SECRET ) );
+
+        //
+        // Optional
+        //
+
+        if( config.exists( Configuration.IGNORE_EMPTY_GROUPS ) )
+        {
+            builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
         }
 
         return builder.build();
@@ -226,7 +281,7 @@ public class Main
             RangerClient rangerClient = new RangerClient.Builder( rangerConfig.uri().toString() ).credentials( rangerConfig.user(), rangerConfig.password() ).dryrun( rangerConfig.dryrun() ).build();
 
             // Need to keep a list of unique users from all LDAP groups
-            var users = new java.util.HashSet<String>();
+            var users = new java.util.HashMap<String,List<String>>();
 
             //
             // Get and process LDAP groups
@@ -253,44 +308,68 @@ public class Main
                         logger.log( Level.INFO, "LDAP group '" + entry.getKey() + "' contains no users"  );
                     }
                 }
+                else
+                {
+                    logger.log( Level.INFO, "LDAP group '" + entry.getKey() + "' contains " + entry.getValue().size() + " users"  );
+                }
 
                 // Create the group info
                 var builder = new VXGroupUserInfo.Builder( entry.getKey() ).groupDescription( description );
 
+                int count = 0;
+
+                //
                 // Add the users to the group
+                //
                 for( var user : entry.getValue() )
                 {
-                    logger.log( Level.INFO, "LDAP group '" + entry.getKey() + "' contains user '" + user + "'"  );
+                    logger.log( Level.FINE, "LDAP group '" + entry.getKey() + "' contains user '" + user + "'"  );
+
+                    rangerClient.createPortalUser( user );
+
+                    rangerClient.createUserGroupInfo( new VXUserGroupInfo.Builder( user ).description( description ).build() );
+
+                    builder.addUser( user ); count++;
+
+                    // Check if an upload limit is configured
+                    if( rangerConfig.hasUploadLimit() && count >= rangerConfig.uploadLimit() )
+                    {
+                        logger.log( Level.INFO, "Uploading " + count + " users to Ranger group '" +  entry.getKey() + "'" );
+
+                        // Upload the current user set
+                        rangerClient.createGroupInfo( builder.build() );
+
+                        // Reset the builder
+                        builder = new VXGroupUserInfo.Builder( entry.getKey() ).groupDescription( description ); count = 0;
+                    }
 
                     //
-                    // TODO there may be a limit on the number of users per submission
+                    // Track all the users added, and the groups they are members of
                     //
 
-                    builder.addUser( user );
+                    if( ! users.containsKey( user ) )
+                    {
+                        users.put( user, new ArrayList<>() );
+                    }
 
-                    if( ! users.contains( user ) )
-                    {
-                        users.add( user );
-                    }
-                    else
-                    {
-                        logger.log( Level.FINE, "Found duplicate user '" + user + "' in another LDAP group" );
-                    }
+                    users.get( user ).add( entry.getKey() );
                 }
 
-                rangerClient.createGroupInfo( builder.build() );
-
-                if( rangerConfig.deleteUsers() )
+                if( count > 0 )
                 {
-                    //
-                    // Delete all Ranger users that aren't in the LDAP list
-                    //
-                    for( var user : rangerClient.getGroupUsers( entry.getKey() ).getUsers() )
+                    logger.log( Level.INFO, "Uploading " + count + " users to Ranger group '" +  entry.getKey() + "'" );
+                    rangerClient.createGroupInfo( builder.build() );
+                }
+
+                //
+                // Delete all Ranger users from the group that aren't in the group
+                //
+                for( var user : rangerClient.getGroupUsers( entry.getKey() ).getUsers() )
+                {
+                    if( ! entry.getValue().contains( user ) )
                     {
-                        if( ! entry.getValue().contains( user ) )
-                        {
-                            rangerClient.deleteGroupUser( entry.getKey(), user );
-                        }
+                        logger.log( Level.INFO, "Removing user " + count + " user from Ranger group '" +  entry.getKey() + "'" );
+                        rangerClient.deleteGroupUser( entry.getKey(), user );
                     }
                 }
             }
@@ -302,26 +381,46 @@ public class Main
                     // Skip any non-external group
                     if( vxGroup.getGroupSource() != 1 )
                     {
+                        logger.log( Level.FINEST, "Group '" +  vxGroup.getName() + "' is not external" );
                         continue;
                     }
 
                     //
-                    // Delete any Ranger groups that are not in the map of LDAP groups
+                    // Delete any existing Ranger groups that were not returned from LDAP
                     //
                     if( ! ldapGroups.containsKey( vxGroup.getName() ) )
                     {
+                        logger.log( Level.INFO, "Removing Ranger group '" +  vxGroup.getName() + "'" );
                         rangerClient.deleteGroup( vxGroup.getId(), vxGroup.getName() );
+                    }
+                    else
+                    {
+                        logger.log( Level.FINEST, "Group '" +  vxGroup.getName() + "' exists in both source/destination, skipping" );
                     }
                 }
             }
 
-            for( var user : users )
+            if( rangerConfig.deleteUsers() )
             {
-                // Create a portal user for each user seen in groups
-                rangerClient.createPortalUser( user );
+                for( var user : rangerClient.getUsers().users() )
+                {
+                    // Skip any users that were not created externally
+                    if( ! user.isExternal() )
+                    {
+                        continue;
+                    }
 
-                // Create usergroupinfo for each user seen in groups
-                rangerClient.createUserGroupInfo( new VXUserGroupInfo.Builder( user ).description( description ).build() );
+                    // Skip if the user exists as a member of an LDAP group
+                    if( users.containsKey( user.name() ) )
+                    {
+                        continue;
+                    }
+
+                    logger.log( Level.INFO, "Removing Ranger user '" +  user.name() + "'" );
+
+                    // Delete user from Ranger that is not a member of any group returned from LDAP
+                    rangerClient.deleteUser( user.id(), user.name() );
+                }
             }
         }
         catch( LDAPException | RangerException ex )
@@ -335,6 +434,178 @@ public class Main
         }
     }
 
+    public static void azuresync( AzureConfig azureConfig, RangerConfig rangerConfig )
+    {
+        final String description = "Imported by Active Directory sync";
+
+        try
+        {
+            //
+            // Azure connect
+            //
+
+            var azureClient = new AzureClient();
+
+            azureClient.login( azureConfig );
+
+            //
+            // Ranger connect
+            //
+
+            RangerClient rangerClient = new RangerClient.Builder( rangerConfig.uri().toString() ).credentials( rangerConfig.user(), rangerConfig.password() ).dryrun( rangerConfig.dryrun() ).build();
+
+            // Need to keep a list of unique users from all Azure groups
+            var users = new java.util.HashMap<String,List<String>>();
+
+            //
+            // Get and process Azure groups
+            //
+
+            var azureGroups = azureClient.getGroups( azureConfig );
+
+            for( var entry : azureGroups.entrySet() )
+            {
+                logger.log( Level.INFO, "Processing Azure group '" + entry.getKey() + "'"  );
+
+                //
+                // If no users (group is empty), check ignore flag
+                //
+                if( entry.getValue().isEmpty() )
+                {
+                    if( azureConfig.ignoreEmptyGroups() )
+                    {
+                        logger.log( Level.INFO, "Azure group '" + entry.getKey() + "' contains no users, skipping"  );
+                        continue;
+                    }
+                    else
+                    {
+                        logger.log( Level.INFO, "Azure group '" + entry.getKey() + "' contains no users"  );
+                    }
+                }
+                else
+                {
+                    logger.log( Level.INFO, "Azure group '" + entry.getKey() + "' contains " + entry.getValue().size() + " users"  );
+                }
+
+                // Create the group info
+                var builder = new VXGroupUserInfo.Builder( entry.getKey() ).groupDescription( description );
+
+                int count = 0;
+
+                //
+                // Add the users to the group
+                //
+                for( var user : entry.getValue() )
+                {
+                    logger.log( Level.FINE, "Azure group '" + entry.getKey() + "' contains user '" + user + "'"  );
+
+                    rangerClient.createPortalUser( user );
+
+                    rangerClient.createUserGroupInfo( new VXUserGroupInfo.Builder( user ).description( description ).build() );
+
+                    builder.addUser( user ); count++;
+
+                    // Check if an upload limit is configured
+                    if( rangerConfig.hasUploadLimit() && count >= rangerConfig.uploadLimit() )
+                    {
+                        logger.log( Level.INFO, "Uploading " + count + " users to Ranger group '" +  entry.getKey() + "'" );
+
+                        // Upload the current user set
+                        rangerClient.createGroupInfo( builder.build() );
+
+                        // Reset the builder
+                        builder = new VXGroupUserInfo.Builder( entry.getKey() ).groupDescription( description ); count = 0;
+                    }
+
+                    //
+                    // Track all the users added, and the groups they are members of
+                    //
+
+                    if( ! users.containsKey( user ) )
+                    {
+                        users.put( user, new ArrayList<>() );
+                    }
+
+                    users.get( user ).add( entry.getKey() );
+                }
+
+                if( count > 0 )
+                {
+                    logger.log( Level.INFO, "Uploading " + count + " users to Ranger group '" +  entry.getKey() + "'" );
+                    rangerClient.createGroupInfo( builder.build() );
+                }
+
+                //
+                // Delete all Ranger users from the group that aren't in the group
+                //
+                for( var user : rangerClient.getGroupUsers( entry.getKey() ).getUsers() )
+                {
+                    if( ! entry.getValue().contains( user ) )
+                    {
+                        rangerClient.deleteGroupUser( entry.getKey(), user );
+                    }
+                }
+            }
+
+            if( rangerConfig.deleteGroups() )
+            {
+                for( var vxGroup : rangerClient.getGroups().getVXGroups() )
+                {
+                    // Skip any non-external group
+                    if( vxGroup.getGroupSource() != 1 )
+                    {
+                        logger.log( Level.FINEST, "Group '" +  vxGroup.getName() + "' is not external" );
+                        continue;
+                    }
+
+                    //
+                    // Delete any existing Ranger groups that were not returned from Azure
+                    //
+                    if( ! azureGroups.containsKey( vxGroup.getName() ) )
+                    {
+                        logger.log( Level.INFO, "Removing Ranger group '" +  vxGroup.getName() + "'" );
+                        rangerClient.deleteGroup( vxGroup.getId(), vxGroup.getName() );
+                    }
+                    else
+                    {
+                        logger.log( Level.FINEST, "Group '" +  vxGroup.getName() + "' exists in both source/destination, skipping" );
+                    }
+                }
+            }
+
+            if( rangerConfig.deleteUsers() )
+            {
+                for( var user : rangerClient.getUsers().users() )
+                {
+                    // Skip any users that were not created externally
+                    if( ! user.isExternal() )
+                    {
+                        continue;
+                    }
+
+                    // Skip if the user exists as a member of an LDAP group
+                    if( users.containsKey( user.name() ) )
+                    {
+                        continue;
+                    }
+
+                    logger.log( Level.INFO, "Removing Ranger user '" +  user.name() + "'" );
+
+                    // Delete user from Ranger that is not a member of any group returned from Azure
+                    rangerClient.deleteUser( user.id(), user.name() );
+                }
+            }
+        }
+        catch( AzureException | RangerException ex )
+        {
+            logger.log( Level.SEVERE, ex.getMessage() );
+
+            if( ex.getCause() != null )
+            {
+                logger.log( Level.SEVERE, ex.getCause().toString() );
+            }
+        }
+    }
 
     public static void main( String[] args )
     {
@@ -393,6 +664,8 @@ public class Main
         {
             case "ldap" ->
             {
+                logger.log( Level.CONFIG, "Pulling group information from LDAP" );
+
                 try
                 {
                     ldapsync( getLDAPConfiguration( configuration ), rangerConfig );
@@ -413,9 +686,25 @@ public class Main
             {
                 logger.log( Level.SEVERE, "Configuration: '" + Configuration.SOURCE_TYPE + "=scim' is not supported yet" );
             }
-            case "aad" ->
+            case "azure" ->
             {
-                logger.log( Level.SEVERE, "Configuration: '" + Configuration.SOURCE_TYPE + "=aad' is not supported yet" );
+                logger.log( Level.CONFIG, "Pulling group information from Azure" );
+
+                try
+                {
+                    azuresync( getAzureConfiguration( configuration ), rangerConfig );
+                }
+                catch( AzureException ex )
+                {
+                    logger.log( Level.SEVERE, ex.getMessage() );
+
+                    if( ex.getCause() != null )
+                    {
+                        logger.log( Level.SEVERE, ex.getCause().toString() );
+                    }
+
+                    System.exit( -1 );
+                }
             }
             default ->
             {

@@ -3,8 +3,6 @@ package com.starburstdata.ldap;
 import com.unboundid.ldap.sdk.LDAPConnection;
 import com.unboundid.ldap.sdk.SearchRequest;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -165,43 +163,6 @@ public class LDAPClient
         catch( com.unboundid.ldap.sdk.LDAPException ex )
         {
             throw new LDAPException( "Cannot connect to LDAP server", ex );
-        }
-    }
-
-    public static class Builder
-    {
-        InetAddress address;
-        int port;
-
-        public Builder( String address, int port ) throws LDAPException
-        {
-            host( address );
-
-            this.port = port;
-        }
-
-        private void host( String host ) throws LDAPException
-        {
-            try
-            {
-                this.address = InetAddress.getByName( host );
-            }
-            catch( UnknownHostException ex )
-            {
-                address( host );
-            }
-        }
-
-        private void address( String address ) throws LDAPException
-        {
-            try
-            {
-                this.address = InetAddress.getByAddress( address.getBytes() );
-            }
-            catch( UnknownHostException ex )
-            {
-                throw new LDAPException( "Invalid inet address", ex );
-            }
         }
     }
 }

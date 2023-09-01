@@ -11,6 +11,7 @@ public class RangerConfig
 
     private final boolean deleteUsers;
     private final boolean deleteGroups;
+    private final int uploadLimit;
     private final boolean dryrun;
 
     private RangerConfig( RangerConfig.Builder builder )
@@ -21,6 +22,7 @@ public class RangerConfig
 
         this.deleteUsers = builder.deleteUsers;
         this.deleteGroups = builder.deleteGroups;
+        this.uploadLimit = builder.uploadLimit;
         this.dryrun = builder.dryrun;
     }
 
@@ -49,6 +51,16 @@ public class RangerConfig
         return this.deleteGroups;
     }
 
+    public boolean hasUploadLimit()
+    {
+        return this.uploadLimit != 0;
+    }
+
+    public int uploadLimit()
+    {
+        return this.uploadLimit;
+    }
+
     public boolean dryrun()
     {
         return this.dryrun;
@@ -62,6 +74,7 @@ public class RangerConfig
 
         boolean deleteUsers = true;
         boolean deleteGroups = true;
+        int uploadLimit = 0;
         boolean dryrun = false;
 
         public Builder( String uri ) throws URISyntaxException
@@ -104,6 +117,11 @@ public class RangerConfig
         public Builder deleteGroups( String flag )
         {
             this.deleteGroups = Boolean.parseBoolean( flag ); return this;
+        }
+
+        public Builder uploadLimit( String uploadLimit )
+        {
+            this.uploadLimit = Integer.parseInt( uploadLimit ); return this;
         }
 
         public Builder dryrun( String flag )

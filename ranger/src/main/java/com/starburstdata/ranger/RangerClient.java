@@ -1,16 +1,27 @@
 package com.starburstdata.ranger;
 
 import com.google.gson.Gson;
+import com.starburstdata.ranger.model.VXGroupUserInfo;
+import com.starburstdata.ranger.model.VXGroups;
+import com.starburstdata.ranger.model.VXPortalUser;
+import com.starburstdata.ranger.model.VXUsers;
+import com.starburstdata.ranger.model.VXUserGroupInfo;
+
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.logging.Logger;
 
 public class RangerClient
 {
     // Date parsing - https://kylewbanks.com/blog/String-Date-Parsing-with-GSON-UTC-Time-Zone
+
+    private final static Logger logger = Logger.getLogger( RangerClient.class.getName() );
 
     private HttpClient client;
     private final String base;
@@ -82,7 +93,7 @@ public class RangerClient
 
     public void createPortalUser( String loginId ) throws RangerException
     {
-        createPortalUser( new VXPortalUser.Builder(loginId).build() );
+        createPortalUser( new VXPortalUser.Builder( loginId ).build() );
     }
 
     public void createPortalUser( VXPortalUser user ) throws RangerException
@@ -117,10 +128,127 @@ public class RangerClient
         // Expected return status OK
         if( response.statusCode() != 200 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Create Portal User: Status " + response.statusCode() + " returned, expected 200" );
         }
 
         //var ret = new Gson().fromJson( response.body(), VXPortalUser.class );
+    }
+
+    public void deleteUser( int id, String name ) throws RangerException
+    {
+        URI uri;
+
+        try
+        {
+            uri = new URI( base + "/service/xusers/users/" + id + "?forceDelete=true" );
+        }
+        catch( URISyntaxException ex )
+        {
+            throw new RangerException( "Error formatting createPortalUser URI", ex );
+        }
+
+        var builder = HttpRequest.newBuilder(uri).DELETE().header("Accept", "application/json");
+
+        if( auth != null )
+        {
+            builder.header("Authorization", auth );
+        }
+
+        var request = builder.build();
+
+        if( dryrun )
+        {
+            return;
+        }
+
+        var response = client.sendAsync(request, HttpResponse.BodyHandlers.discarding()).join();
+
+        // Expected return status NoContent
+        if( response.statusCode() != 204 )
+        {
+            throw new RangerException( "[Ranger] Delete User: Status " + response.statusCode() + " returned, expected 204" );
+        }
+    }
+
+    public VXUsers getUsers() throws RangerException
+    {
+        URI uri;
+/*
+        try
+        {
+            uri = new URI( base + "/service/xusers/users" );
+        }
+        catch( URISyntaxException ex )
+        {
+            throw new RangerException( "Error formatting getPortalUsers URI", ex );
+        }
+
+        var builder = HttpRequest.newBuilder(uri).GET().header("Accept", "application/json");
+
+        if( auth != null )
+        {
+            builder.header("Authorization", auth );
+        }
+
+        var request = builder.build();
+
+        if( dryrun )
+        {
+            return new VXUsers();
+        }
+
+        var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+
+        // Expected return status OK
+        if( response.statusCode() != 200 )
+        {
+            throw new RangerException( "[Ranger] Get Users: Status " + response.statusCode() + " returned, expected 200" );
+        }
+
+        return new Gson().fromJson( response.body(), VXUsers.class );
+        */
+
+        VXUsers users = new VXUsers();
+
+        do
+        {
+            try
+            {
+                uri = new URI( base + "/service/xusers/users?startIndex=" + users.users().length );
+            }
+            catch( URISyntaxException ex )
+            {
+                throw new RangerException( "Error formatting getPortalUsers URI", ex );
+            }
+
+            var builder = HttpRequest.newBuilder(uri).GET().header("Accept", "application/json");
+
+            if( auth != null )
+            {
+                builder.header("Authorization", auth );
+            }
+
+            var request = builder.build();
+
+            if( dryrun )
+            {
+                return new VXUsers();
+            }
+
+            var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+
+            // Expected return status OK
+            if( response.statusCode() != 200 )
+            {
+                throw new RangerException( "[Ranger] Get Users: Status " + response.statusCode() + " returned, expected 200" );
+            }
+
+            // Add the next set of users
+            users = new Gson().fromJson( response.body(), VXUsers.class ).append( users );
+        }
+        while( users.users().length < users.totalCount() );
+
+        return users;
     }
 
     public void createUserGroupInfo( String name, String description ) throws RangerException
@@ -160,7 +288,7 @@ public class RangerClient
         // Expected return status OK
         if( response.statusCode() != 200 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Create User Group Info: Status " + response.statusCode() + " returned, expected 200" );
         }
 
         //var ret = new Gson().fromJson( response.body(), VXPortalUser.class );
@@ -198,7 +326,7 @@ public class RangerClient
         // Expected return status OK
         if( response.statusCode() != 200 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Get Groups: Status " + response.statusCode() + " returned, expected 200" );
         }
 
         return new Gson().fromJson( response.body(), VXGroups.class );
@@ -210,7 +338,7 @@ public class RangerClient
 
         try
         {
-            uri = new URI( base + "/service/xusers/secure/groups/id/" + id );
+            uri = new URI( base + "/service/xusers/secure/groups/id/" + id + "?forceDelete=true" );
         }
         catch( URISyntaxException ex )
         {
@@ -236,7 +364,7 @@ public class RangerClient
         // Expected return status NoContent
         if( response.statusCode() != 204 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Delete Group: Status " + response.statusCode() + " returned, expected 204" );
         }
     }
 
@@ -246,7 +374,7 @@ public class RangerClient
 
         try
         {
-            uri = new URI( base + "/service/xusers/groupusers/groupName/" + name );
+            uri = new URI( base + "/service/xusers/groupusers/groupName/" + URLEncoder.encode( name, StandardCharsets.UTF_8 ) );
         }
         catch( URISyntaxException ex )
         {
@@ -272,7 +400,7 @@ public class RangerClient
         // Expected return status Ok
         if( response.statusCode() != 200 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Get Group Users: Status " + response.statusCode() + " returned, expected 200" );
         }
 
         return new Gson().fromJson( response.body(), VXGroupUserInfo.class );
@@ -284,8 +412,7 @@ public class RangerClient
 
         try
         {
-            // TODO need to query escape at least the user
-            uri = new URI( base + "/service/xusers/group/" + group + "/id/" + user );
+            uri = new URI( base + "/service/xusers/group/" + URLEncoder.encode( group, StandardCharsets.UTF_8 ) + "/id/" + URLEncoder.encode( user, StandardCharsets.UTF_8 ) );
         }
         catch( URISyntaxException ex )
         {
@@ -311,7 +438,7 @@ public class RangerClient
         // Expected return status NoContent
         if( response.statusCode() != 204 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Delete Group User: Status " + response.statusCode() + " returned, expected 204" );
         }
     }
 
@@ -347,7 +474,7 @@ public class RangerClient
         // Expected return status OK
         if( response.statusCode() != 200 )
         {
-            throw new RangerException( "Unexpected result" );
+            throw new RangerException( "[Ranger] Create Group Info: Status " + response.statusCode() + " returned, expected 200" );
         }
 
         //var ret = new Gson().fromJson( response.body(), VXGroupUserInfo.class );

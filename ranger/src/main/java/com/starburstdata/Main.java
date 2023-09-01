@@ -2,7 +2,6 @@ package com.starburstdata;
 
 import com.starburstdata.ranger.RangerClient;
 import com.starburstdata.ranger.RangerException;
-import com.starburstdata.ranger.VXGroupUserInfo;
 
 public class Main
 {
