@@ -6,10 +6,16 @@ import java.io.InputStream;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.util.regex.Matcher.quoteReplacement;
 
 public class Configuration
 {
     private final static Logger logger = Logger.getLogger( Configuration.class.getName() );
+
+    private static final Pattern ENV_PATTERN = Pattern.compile("\\$\\{ENV:([a-zA-Z][a-zA-Z0-9_-]*)}");
 
     public final static String SOURCE_TYPE = "source.type";
     public final static String DEST_TYPE = "destination.type";
@@ -41,6 +47,7 @@ public class Configuration
     public final static String SOURCE_AZURE_TENANT_ID = "source.azure.tenant-id";
     public final static String SOURCE_AZURE_CLIENT_ID = "source.azure.client-id";
     public final static String SOURCE_AZURE_CLIENT_SECRET = "source.azure.client-secret";
+    public final static String SOURCE_AZURE_GROUP_FILTER = "source.azure.group-filter";
 
     //
     // Ranger
@@ -72,8 +79,33 @@ public class Configuration
             configuration.load( is );
 
             //
-            // TODO - replace env variables - io/airlift/configuration/ConfigurationUtils.java
+            // Based on https://github.com/airlift/airlift/blob/master/configuration/src/main/java/io/airlift/configuration/ConfigurationUtils.java#L32
             //
+
+            configuration.forEach(( key, value ) ->
+            {
+                Matcher matcher = ENV_PATTERN.matcher( value.toString() );
+                StringBuilder replacement = new StringBuilder();
+
+                while( matcher.find() )
+                {
+                    String envName = matcher.group( 1 );
+                    String envValue = System.getenv().get( envName );
+
+                    if( envValue == null )
+                    {
+                        logger.log( Level.SEVERE, "Configuration: Property '"+ key +"' references unset environment variable '"+ envName +"'" );
+                        throw new RuntimeException();
+                    }
+
+                    matcher.appendReplacement( replacement, quoteReplacement( envValue ) );
+                }
+
+                matcher.appendTail( replacement );
+
+                // Replace the configuration value, stays the same if no matches were found
+                configuration.replace( key, replacement.toString() );
+            });
         }
         catch( IOException ex )
         {

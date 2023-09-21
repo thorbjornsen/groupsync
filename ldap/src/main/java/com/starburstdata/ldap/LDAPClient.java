@@ -121,29 +121,26 @@ public class LDAPClient
                     continue;
                 }
 
-                if( ! result.hasAttribute( config.groupMemberAttribute() ) )
-                {
-                    logger.log( Level.WARNING, "Attribute " + config.groupMemberAttribute() + " is not available in search result" );
-                    continue;
-                }
-
-                var users = new ArrayList<String>();
+                var members = new ArrayList<String>();
 
                 for( var member : result.getAttribute( config.groupMemberAttribute() ).getValues() )
                 {
                     for( var sub : member.split( "," ) )
                     {
-                        if( sub.startsWith( config.userNameAttribute() ) )
+                        if( sub.trim().startsWith( config.userNameAttribute() ) )
                         {
                             var name = sub.split( "=" );
 
                             if( name.length == 2 )
                             {
-                                //
-                                // TODO check if name already exists
-                                //
-
-                                users.add( name[1] );
+                                if( members.contains( name[1].trim() ) )
+                                {
+                                    logger.log( Level.FINE, "Duplicate user '" + name[1].trim() + "' found in group '" + result.getAttribute( config.groupMemberAttribute() ) + "'" );
+                                }
+                                else
+                                {
+                                    members.add( name[1].trim() );
+                                }
                             }
                             else
                             {
@@ -155,7 +152,7 @@ public class LDAPClient
                     }
                 }
 
-                groups.put( result.getAttributeValue( config.groupNameAttribute() ), users );
+                groups.put( result.getAttributeValue( config.groupNameAttribute() ), members );
             }
 
             return groups;

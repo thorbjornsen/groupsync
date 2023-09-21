@@ -250,6 +250,11 @@ public class Main
         // Optional
         //
 
+        if( config.exists( Configuration.SOURCE_AZURE_GROUP_FILTER ) )
+        {
+            builder.groupFilter( config.get( Configuration.SOURCE_AZURE_GROUP_FILTER ) );
+        }
+
         if( config.exists( Configuration.IGNORE_EMPTY_GROUPS ) )
         {
             builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );

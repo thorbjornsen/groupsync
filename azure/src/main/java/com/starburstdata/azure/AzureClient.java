@@ -7,9 +7,11 @@ import com.starburstdata.azure.model.AzureToken;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,11 +73,12 @@ public class AzureClient
             throw new AzureException( "Authentication (login) has not been run" );
         }
 
-        var groups = new HashMap<String,List<String>>();
+        // Keep track of the groups that have been processed already
+        var processed = new HashMap<String,List<String>>();
 
-        for( var group : getGroups().value() )
+        for( var group : getGroups( config.groupFilter() ).value() )
         {
-            if( groups.containsKey( group.displayName() ) )
+            if( processed.containsKey( group.displayName() ) )
             {
                 logger.log( Level.WARNING, "Duplicate group name '" + group.displayName() + "' found, skipping" );
                 continue;
@@ -91,7 +94,7 @@ public class AzureClient
                 }
                 else if( "#microsoft.graph.group".equals( member.odataType() ) )
                 {
-                    logger.log( Level.FINE, "Found nested group '" + member.userPrincipalName() + "' in group " + group.displayName() );
+                    logger.log( Level.FINE, "Found nested group '" + member.displayName() + "' in group " + group.displayName() );
                 }
                 else
                 {
@@ -99,23 +102,33 @@ public class AzureClient
                 }
             }
 
-            groups.put( group.displayName(), users );
+            processed.put( group.displayName(), users );
         }
 
-        return groups;
+        return processed;
     }
 
-    protected AzureGroups getGroups() throws AzureException
+    protected AzureGroups getGroups( String[] filter ) throws AzureException
     {
-        //
-        // TODO add group filters?
-        //
+        StringBuilder sb = new StringBuilder( "https://graph.microsoft.com/v1.0/groups" );
+
+        if( filter.length > 0 )
+        {
+            // Add the initial group filter
+            sb.append( "?$filter=startsWith(displayName,%27" ).append( URLEncoder.encode(filter[0], StandardCharsets.UTF_8) ).append( "%27" );
+
+            // Add any additional group filters
+            for( int i = 1; i < filter.length; i++ )
+            {
+                sb.append( "+or+startsWith(displayName,%27" ).append( URLEncoder.encode(filter[i], StandardCharsets.UTF_8) ).append( "%27" );
+            }
+        }
 
         URI uri;
 
         try
         {
-            uri = new URI( "https://graph.microsoft.com/v1.0/groups" );
+            uri = new URI( sb.toString() );
         }
         catch( URISyntaxException ex )
         {

@@ -5,6 +5,7 @@ public class AzureConfig
     private final String tenantId;
     private final String clientId;
     private final String clientSecret;
+    private final String[] groupFilter;
 
     private final boolean ignoreEmptyGroups;
 
@@ -13,6 +14,7 @@ public class AzureConfig
         this.tenantId = builder.tenantId;
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
+        this.groupFilter = builder.groupFilter;
 
         this.ignoreEmptyGroups = builder.ignoreEmptyGroups;
     }
@@ -32,6 +34,11 @@ public class AzureConfig
         return this.clientSecret;
     }
 
+    public String[] groupFilter()
+    {
+        return this.groupFilter;
+    }
+
     public boolean ignoreEmptyGroups()
     {
         return this.ignoreEmptyGroups;
@@ -42,6 +49,7 @@ public class AzureConfig
         String tenantId;
         String clientId;
         String clientSecret;
+        String[] groupFilter = {};
 
         boolean ignoreEmptyGroups = true;
 
@@ -60,7 +68,12 @@ public class AzureConfig
             this.clientSecret = clientSecret; return this;
         }
 
-        public Builder ignoreEmptyGroups( String flag )
+        public AzureConfig.Builder groupFilter( String filter )
+        {
+            this.groupFilter = filter.split( ";" ); return this;
+        }
+
+        public AzureConfig.Builder ignoreEmptyGroups( String flag )
         {
             this.ignoreEmptyGroups = Boolean.parseBoolean( flag ); return this;
         }
