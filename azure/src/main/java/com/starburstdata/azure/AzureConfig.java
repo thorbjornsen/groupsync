@@ -8,6 +8,7 @@ public class AzureConfig
     private final String[] groupFilter;
 
     private final boolean ignoreEmptyGroups;
+    private final int syncInterval;
 
     private AzureConfig( Builder builder )
     {
@@ -17,6 +18,7 @@ public class AzureConfig
         this.groupFilter = builder.groupFilter;
 
         this.ignoreEmptyGroups = builder.ignoreEmptyGroups;
+        this.syncInterval = builder.syncInterval;
     }
 
     public String tenantId()
@@ -44,6 +46,11 @@ public class AzureConfig
         return this.ignoreEmptyGroups;
     }
 
+    public int syncInterval()
+    {
+        return this.syncInterval;
+    }
+
     public static class Builder
     {
         String tenantId;
@@ -52,6 +59,7 @@ public class AzureConfig
         String[] groupFilter = {};
 
         boolean ignoreEmptyGroups = true;
+        int syncInterval = 0;
 
         public AzureConfig.Builder tenantId( String tenantId )
         {
@@ -76,6 +84,11 @@ public class AzureConfig
         public AzureConfig.Builder ignoreEmptyGroups( String flag )
         {
             this.ignoreEmptyGroups = Boolean.parseBoolean( flag ); return this;
+        }
+
+        public AzureConfig.Builder syncInterval( String value )
+        {
+            this.syncInterval = Integer.parseInt( value ); return this;
         }
 
         public AzureConfig build()

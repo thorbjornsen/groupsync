@@ -15,6 +15,7 @@ import com.starburstdata.ranger.model.VXUserGroupInfo;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -210,6 +211,11 @@ public class Main
             builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
         }
 
+        if( config.exists( Configuration.SYNC_INTERVAL ) )
+        {
+            builder.syncInterval( config.get( Configuration.SYNC_INTERVAL ) );
+        }
+
         return builder.build();
     }
 
@@ -260,6 +266,11 @@ public class Main
             builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
         }
 
+        if( config.exists( Configuration.SYNC_INTERVAL ) )
+        {
+            builder.syncInterval( config.get( Configuration.SYNC_INTERVAL ) );
+        }
+
         return builder.build();
     }
 
@@ -293,6 +304,12 @@ public class Main
             //
 
             var ldapGroups = ldapClient.getGroups( ldapConfig );
+
+            if( ldapGroups.isEmpty() )
+            {
+                logger.log( Level.INFO, "No LDAP groups returned"  );
+                return;
+            }
 
             for( var entry : ldapGroups.entrySet() )
             {
@@ -467,6 +484,12 @@ public class Main
             //
 
             var azureGroups = azureClient.getGroups( azureConfig );
+
+            if( azureGroups.isEmpty() )
+            {
+                logger.log( Level.INFO, "No Azure groups returned"  );
+                return;
+            }
 
             for( var entry : azureGroups.entrySet() )
             {
@@ -669,11 +692,37 @@ public class Main
         {
             case "ldap" ->
             {
-                logger.log( Level.CONFIG, "Pulling group information from LDAP" );
+                logger.log( Level.INFO, "Pulling group information from LDAP" );
 
                 try
                 {
-                    ldapsync( getLDAPConfiguration( configuration ), rangerConfig );
+                    var ldapConfig = getLDAPConfiguration( configuration );
+
+                    for( ; ; )
+                    {
+                        ldapsync( ldapConfig, rangerConfig );
+
+                        if( ldapConfig.syncInterval() > 0 )
+                        {
+                            try
+                            {
+                                logger.log( Level.FINE, "Waiting for " + ldapConfig.syncInterval() + " seconds" );
+
+                                TimeUnit.SECONDS.sleep( ldapConfig.syncInterval() );
+                            }
+                            catch( InterruptedException ex )
+                            {
+                                logger.log( Level.FINE, "LDAP refresh was interrupted: ", ex );
+
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
                 }
                 catch( LDAPException ex )
                 {
@@ -693,11 +742,37 @@ public class Main
             }
             case "azure" ->
             {
-                logger.log( Level.CONFIG, "Pulling group information from Azure" );
+                logger.log( Level.INFO, "Pulling group information from Azure" );
 
                 try
                 {
-                    azuresync( getAzureConfiguration( configuration ), rangerConfig );
+                    var azureConfig = getAzureConfiguration( configuration );
+
+                    for( ; ; )
+                    {
+                        azuresync( azureConfig, rangerConfig );
+
+                        if( azureConfig.syncInterval() > 0 )
+                        {
+                            try
+                            {
+                                logger.log( Level.FINE, "Waiting for " + azureConfig.syncInterval() + " seconds" );
+
+                                TimeUnit.SECONDS.sleep( azureConfig.syncInterval() );
+                            }
+                            catch( InterruptedException ex )
+                            {
+                                logger.log( Level.FINE, "Azure refresh was interrupted: ", ex );
+
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
                 }
                 catch( AzureException ex )
                 {

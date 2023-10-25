@@ -33,6 +33,7 @@ public class LDAPConfig
     // Misc
     //
     private final boolean ignoreEmptyGroups;
+    private final int syncInterval;
 
     private String userObjectClass;
 
@@ -55,6 +56,7 @@ public class LDAPConfig
         this.groupAttributes = builder.groupAttributes;
 
         this.ignoreEmptyGroups = builder.ignoreEmptyGroups;
+        this.syncInterval = builder.syncInterval;
     }
 
     public String host()
@@ -122,6 +124,11 @@ public class LDAPConfig
         return this.ignoreEmptyGroups;
     }
 
+    public int syncInterval()
+    {
+        return this.syncInterval;
+    }
+
     public static class Builder
     {
         String address;
@@ -139,6 +146,7 @@ public class LDAPConfig
         String[] groupAttributes = null;
 
         boolean ignoreEmptyGroups = true;
+        int syncInterval = 0;
 
         public Builder( String address, String port ) throws LDAPException
         {
@@ -261,6 +269,11 @@ public class LDAPConfig
         public Builder ignoreEmptyGroups( String flag )
         {
             this.ignoreEmptyGroups = Boolean.parseBoolean( flag ); return this;
+        }
+
+        public Builder syncInterval( String value )
+        {
+            this.syncInterval = Integer.parseInt( value ); return this;
         }
 
         public LDAPConfig build()

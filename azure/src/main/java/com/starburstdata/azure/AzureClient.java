@@ -115,12 +115,12 @@ public class AzureClient
         if( filter.length > 0 )
         {
             // Add the initial group filter
-            sb.append( "?$filter=startsWith(displayName,%27" ).append( URLEncoder.encode(filter[0], StandardCharsets.UTF_8) ).append( "%27" );
+            sb.append( "?$filter=startsWith(displayName,%27" ).append( URLEncoder.encode(filter[0], StandardCharsets.UTF_8) ).append( "%27)" );
 
             // Add any additional group filters
             for( int i = 1; i < filter.length; i++ )
             {
-                sb.append( "+or+startsWith(displayName,%27" ).append( URLEncoder.encode(filter[i], StandardCharsets.UTF_8) ).append( "%27" );
+                sb.append( "+or+startsWith(displayName,%27" ).append( URLEncoder.encode(filter[i], StandardCharsets.UTF_8) ).append( "%27)" );
             }
         }
 

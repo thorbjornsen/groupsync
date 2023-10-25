@@ -172,43 +172,9 @@ public class RangerClient
 
     public VXUsers getUsers() throws RangerException
     {
-        URI uri;
-/*
-        try
-        {
-            uri = new URI( base + "/service/xusers/users" );
-        }
-        catch( URISyntaxException ex )
-        {
-            throw new RangerException( "Error formatting getPortalUsers URI", ex );
-        }
-
-        var builder = HttpRequest.newBuilder(uri).GET().header("Accept", "application/json");
-
-        if( auth != null )
-        {
-            builder.header("Authorization", auth );
-        }
-
-        var request = builder.build();
-
-        if( dryrun )
-        {
-            return new VXUsers();
-        }
-
-        var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-
-        // Expected return status OK
-        if( response.statusCode() != 200 )
-        {
-            throw new RangerException( "[Ranger] Get Users: Status " + response.statusCode() + " returned, expected 200" );
-        }
-
-        return new Gson().fromJson( response.body(), VXUsers.class );
-        */
-
         VXUsers users = new VXUsers();
+
+        URI uri;
 
         do
         {

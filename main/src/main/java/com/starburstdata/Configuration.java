@@ -23,7 +23,8 @@ public class Configuration
     //
     // Common
     //
-    public final static String IGNORE_EMPTY_GROUPS = "ignore-empty-groups";
+    public final static String IGNORE_EMPTY_GROUPS = "source.ignore-empty-groups";
+    public final static String SYNC_INTERVAL = "sync-interval";
 
     //
     // LDAP
