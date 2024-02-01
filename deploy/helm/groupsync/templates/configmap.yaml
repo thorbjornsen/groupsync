@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  config.properties: |
+    source.type: {{ .Values.groupsync.source.type }}
+    source.create-empty-groups: {{ .Values.groupsync.source.createEmptyGroups }}
+    source.sync-interval: {{ .Values.groupsync.source.syncInterval }}
+    {{- if eq .Values.groupsync.source.type "ldap" }}
+    source.ldap.host: {{ .Values.groupsync.source.ldap.host }}
+    source.ldap.port: {{ .Values.groupsync.source.ldap.port }}
+    source.ldap.bind.user: {{ .Values.groupsync.source.ldap.bindUser }}
+    source.ldap.bind.password: {{ .Values.groupsync.source.ldap.bindPassword }}
+    source.ldap.group.search-base: {{ .Values.groupsync.source.ldap.group.searchBase }}
+    {{- if .Values.groupsync.source.ldap.group.searchScope }}
+    source.ldap.group.search-scope: {{ .Values.groupsync.source.ldap.group.searchScope }}
+    {{- end }}
+    source.ldap.group.object-class: {{ .Values.groupsync.source.ldap.group.objectClass }}
+    source.ldap.group.member-attribute: {{ .Values.groupsync.source.ldap.group.memberAttribute }}
+    source.ldap.group.name-attribute: {{ .Values.groupsync.source.ldap.group.nameAttribute }}
+    {{- if .Values.groupsync.source.ldap.group.searchFilter }}
+    source.ldap.group.search-filter: {{ .Values.groupsync.source.ldap.group.searchFilter }}
+    {{- end }}
+    {{- if .Values.groupsync.source.ldap.group.attributes }}
+    source.ldap.group.attributes: {{ .Values.groupsync.source.ldap.group.attributes }}
+    {{- end }}
+    source.ldap.user.name-attribute: {{ .Values.groupsync.source.ldap.user.nameAttribute }}
+    {{- end }}
+    {{- if eq .Values.groupsync.source.type "azure" }}
+    source.azure.tenant-id: {{ .Values.groupsync.source.azure.tenantId }}
+    source.azure.client-id: {{ .Values.groupsync.source.azure.clientId }}
+    source.azure.client-secret: {{ .Values.groupsync.source.azure.clientSecret }}
+    {{- if .Values.groupsync.source.azure.groupFilter }}
+    source.azure.group-filter: {{ .Values.groupsync.source.azure.groupFilter }}
+    {{- end }}
+    {{- end }}
+    destination.type: {{ .Values.groupsync.destination.type }}
+    {{- if eq .Values.groupsync.destination.type "ranger" }}
+    destination.ranger.uri: {{ .Values.groupsync.destination.ranger.uri }}
+    destination.ranger.user: {{ .Values.groupsync.destination.ranger.user }}
+    destination.ranger.password: {{ .Values.groupsync.destination.ranger.password }}
+    destination.ranger.delete.users: {{ .Values.groupsync.destination.ranger.deleteUsers }}
+    destination.ranger.delete.groups: {{ .Values.groupsync.destination.ranger.deleteGroups }}
+    destination.ranger.upload.limit: {{ .Values.groupsync.destination.ranger.uploadLimit }}
+    destination.ranger.dryrun: {{ .Values.groupsync.destination.ranger.dryrun }}
+    {{- end }}

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "groupsync.fullname" . }}
+  labels:
+    {{- include "groupsync.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "groupsync.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "groupsync.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "app.imagePullSecretName" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: groupsync
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.groupsync.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args: []
+          volumeMounts:
+            - mountPath: /etc/starburst
+              name: groupsync-conf
+      volumes:
+        - name: groupsync-conf
+          configMap:
+            name: {{ .Release.Name }}-configmap
+            items:
+              - key: config.properties
+                path: config.properties

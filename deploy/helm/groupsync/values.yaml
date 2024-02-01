@@ -1,0 +1,48 @@
+image:
+  repository: harbor.starburstdata.net/usersync/groupsync
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: 1.0.0
+
+groupsync:
+  envFrom: []
+  source:
+    type:
+    ldap:
+      host:
+      port:
+      bindUser:
+      bindPassword:
+      group:
+        searchBase:
+        searchScope:
+        searchFilter:
+        objectClass:
+        memberAttribute:
+        nameAttribute:
+        attributes: "*"
+      user:
+        nameAttribute:
+    azure:
+      tenantId:
+      clientId:
+      clientSecret:
+      #
+      groupFilter:
+    # Flag to create groups that are empty
+    createEmptyGroups: false
+    # How often to check source for updates. Units = seconds
+    syncInterval: 600
+  destination:
+    type: ranger
+    ranger:
+      uri:
+      user:
+      password:
+      deleteUsers: false
+      deleteGroups: false
+      # Max entries per upload. 0 = unlimited
+      uploadLimit: 0
+      # Flag to signal whether to upload to Ranger or not
+      dryrun: false
+
