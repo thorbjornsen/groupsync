@@ -29,7 +29,7 @@ public class Main
             try
             {
                 // Otherwise, try to load the logging property file from the resources
-                System.setProperty( "java.util.logging.config.file", Main.class.getClassLoader().getResource( "logging.properties" ).getFile() );
+                System.setProperty( "java.util.logging.config.file", Main.class.getClassLoader().getResource( "log.properties" ).getFile() );
             }
             catch( NullPointerException ex )
             {
@@ -206,9 +206,9 @@ public class Main
             builder.groupAttributes( config.get( Configuration.SOURCE_LDAP_GROUP_ATTRIBUTES ) );
         }
 
-        if( config.exists( Configuration.IGNORE_EMPTY_GROUPS ) )
+        if( config.exists( Configuration.CREATE_EMPTY_GROUPS ) )
         {
-            builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
+            builder.createEmptyGroups( config.get( Configuration.CREATE_EMPTY_GROUPS ) );
         }
 
         if( config.exists( Configuration.SYNC_INTERVAL ) )
@@ -261,9 +261,9 @@ public class Main
             builder.groupFilter( config.get( Configuration.SOURCE_AZURE_GROUP_FILTER ) );
         }
 
-        if( config.exists( Configuration.IGNORE_EMPTY_GROUPS ) )
+        if( config.exists( Configuration.CREATE_EMPTY_GROUPS ) )
         {
-            builder.ignoreEmptyGroups( config.get( Configuration.IGNORE_EMPTY_GROUPS ) );
+            builder.createEmptyGroups( config.get( Configuration.CREATE_EMPTY_GROUPS ) );
         }
 
         if( config.exists( Configuration.SYNC_INTERVAL ) )
@@ -320,7 +320,7 @@ public class Main
                 //
                 if( entry.getValue().isEmpty() )
                 {
-                    if( ldapConfig.ignoreEmptyGroups() )
+                    if( ! ldapConfig.createEmptyGroups() )
                     {
                         logger.log( Level.INFO, "LDAP group '" + entry.getKey() + "' contains no users, skipping"  );
                         continue;
@@ -500,7 +500,7 @@ public class Main
                 //
                 if( entry.getValue().isEmpty() )
                 {
-                    if( azureConfig.ignoreEmptyGroups() )
+                    if( azureConfig.createEmptyGroups() )
                     {
                         logger.log( Level.INFO, "Azure group '" + entry.getKey() + "' contains no users, skipping"  );
                         continue;
@@ -692,27 +692,29 @@ public class Main
         {
             case "ldap" ->
             {
-                logger.log( Level.INFO, "Pulling group information from LDAP" );
-
                 try
                 {
                     var ldapConfig = getLDAPConfiguration( configuration );
 
                     for( ; ; )
                     {
+                        logger.log( Level.INFO, "Syncing group information from LDAP" );
+
                         ldapsync( ldapConfig, rangerConfig );
+
+                        logger.log( Level.INFO, "Synced group information from LDAP" );
 
                         if( ldapConfig.syncInterval() > 0 )
                         {
                             try
                             {
-                                logger.log( Level.FINE, "Waiting for " + ldapConfig.syncInterval() + " seconds" );
+                                logger.log( Level.INFO, "Waiting for " + ldapConfig.syncInterval() + " seconds for next sync" );
 
                                 TimeUnit.SECONDS.sleep( ldapConfig.syncInterval() );
                             }
                             catch( InterruptedException ex )
                             {
-                                logger.log( Level.FINE, "LDAP refresh was interrupted: ", ex );
+                                logger.log( Level.WARNING, "LDAP sync was interrupted: ", ex );
 
                                 Thread.currentThread().interrupt();
                                 break;
@@ -736,33 +738,31 @@ public class Main
                     System.exit( -1 );
                 }
             }
-            case "scim" ->
-            {
-                logger.log( Level.SEVERE, "Configuration: '" + Configuration.SOURCE_TYPE + "=scim' is not supported yet" );
-            }
             case "azure" ->
             {
-                logger.log( Level.INFO, "Pulling group information from Azure" );
-
                 try
                 {
                     var azureConfig = getAzureConfiguration( configuration );
 
                     for( ; ; )
                     {
+                        logger.log( Level.INFO, "Syncing group information from Azure" );
+
                         azuresync( azureConfig, rangerConfig );
+
+                        logger.log( Level.INFO, "Synced group information from Azure" );
 
                         if( azureConfig.syncInterval() > 0 )
                         {
                             try
                             {
-                                logger.log( Level.FINE, "Waiting for " + azureConfig.syncInterval() + " seconds" );
+                                logger.log( Level.INFO, "Waiting for " + azureConfig.syncInterval() + " seconds for next sync" );
 
                                 TimeUnit.SECONDS.sleep( azureConfig.syncInterval() );
                             }
                             catch( InterruptedException ex )
                             {
-                                logger.log( Level.FINE, "Azure refresh was interrupted: ", ex );
+                                logger.log( Level.FINE, "Azure sync was interrupted: ", ex );
 
                                 Thread.currentThread().interrupt();
                                 break;
@@ -785,6 +785,10 @@ public class Main
 
                     System.exit( -1 );
                 }
+            }
+            case "scim" ->
+            {
+                logger.log( Level.SEVERE, "Configuration: '" + Configuration.SOURCE_TYPE + "=" + configuration.get( Configuration.SOURCE_TYPE ) + "' value is not supported yet" );
             }
             default ->
             {

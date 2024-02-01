@@ -23,24 +23,24 @@ public class Configuration
     //
     // Common
     //
-    public final static String IGNORE_EMPTY_GROUPS = "source.ignore-empty-groups";
-    public final static String SYNC_INTERVAL = "sync-interval";
+    public final static String CREATE_EMPTY_GROUPS = "source.create-empty-groups";
+    public final static String SYNC_INTERVAL = "source.sync-interval";
 
     //
     // LDAP
     //
     public final static String SOURCE_LDAP_HOST = "source.ldap.host";
     public final static String SOURCE_LDAP_PORT = "source.ldap.port";
-    public final static String SOURCE_LDAP_BIND = "source.ldap.bind";
+    public final static String SOURCE_LDAP_BIND = "source.ldap.bind.user";
     public final static String SOURCE_LDAP_BIND_PASS = "source.ldap.bind.password";
-    public final static String SOURCE_LDAP_GROUP_SEARCHBASE = "source.ldap.group.searchbase";
-    public final static String SOURCE_LDAP_GROUP_SEARCHSCOPE = "source.ldap.group.searchscope";
-    public final static String SOURCE_LDAP_GROUP_OBJECTCLASS = "source.ldap.group.objectclass";
-    public final static String SOURCE_LDAP_GROUP_MEMBER_ATTRIBUTE = "source.ldap.group.memberattribute";
-    public final static String SOURCE_LDAP_GROUP_NAME_ATTRIBUTE = "source.ldap.group.nameattribute";
-    public final static String SOURCE_LDAP_GROUP_SEARCHFILTER = "source.ldap.group.searchfilter";
+    public final static String SOURCE_LDAP_GROUP_SEARCHBASE = "source.ldap.group.search-base";
+    public final static String SOURCE_LDAP_GROUP_SEARCHSCOPE = "source.ldap.group.search-scope";
+    public final static String SOURCE_LDAP_GROUP_OBJECTCLASS = "source.ldap.group.object-class";
+    public final static String SOURCE_LDAP_GROUP_MEMBER_ATTRIBUTE = "source.ldap.group.member-attribute";
+    public final static String SOURCE_LDAP_GROUP_NAME_ATTRIBUTE = "source.ldap.group.name-attribute";
+    public final static String SOURCE_LDAP_GROUP_SEARCHFILTER = "source.ldap.group.search-filter";
     public final static String SOURCE_LDAP_GROUP_ATTRIBUTES = "source.ldap.group.attributes";
-    public final static String SOURCE_LDAP_USER_NAME_ATTRIBUTE = "source.ldap.user.nameattribute";
+    public final static String SOURCE_LDAP_USER_NAME_ATTRIBUTE = "source.ldap.user.name-attribute";
 
     //
     // Active Directory
