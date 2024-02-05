@@ -49,6 +49,7 @@ public class Configuration
     public final static String SOURCE_AZURE_CLIENT_ID = "source.azure.client-id";
     public final static String SOURCE_AZURE_CLIENT_SECRET = "source.azure.client-secret";
     public final static String SOURCE_AZURE_GROUP_FILTER = "source.azure.group-filter";
+    public final static String SOURCE_AZURE_SYNC_SERVICE_PRINCIPALS = "source.azure.sync-service-principals";
 
     //
     // Ranger

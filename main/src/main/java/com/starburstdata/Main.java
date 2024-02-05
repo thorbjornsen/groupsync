@@ -271,6 +271,11 @@ public class Main
             builder.syncInterval( config.get( Configuration.SYNC_INTERVAL ) );
         }
 
+        if( config.exists( Configuration.SOURCE_AZURE_SYNC_SERVICE_PRINCIPALS ) )
+        {
+            builder.syncServicePrincipals( config.get( Configuration.SOURCE_AZURE_SYNC_SERVICE_PRINCIPALS ) );
+        }
+
         return builder.build();
     }
 
