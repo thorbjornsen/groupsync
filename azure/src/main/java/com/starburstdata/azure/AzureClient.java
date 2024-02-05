@@ -3,6 +3,7 @@ package com.starburstdata.azure;
 import com.google.gson.Gson;
 import com.starburstdata.azure.model.AzureGroups;
 import com.starburstdata.azure.model.AzureMembers;
+import com.starburstdata.azure.model.AzureServicePrincipals;
 import com.starburstdata.azure.model.AzureToken;
 
 import java.net.URI;
@@ -99,6 +100,14 @@ public class AzureClient
                 else
                 {
                     logger.log( Level.WARNING, "Found unsupported OdataType '" + member.odataType() + "' in group " + group.displayName() );
+                }
+            }
+
+            if( config.syncServicePrincipals() )
+            {
+                for( var servicePrincipal : getServicePrincipals( group.id() ).value() )
+                {
+                    users.add( servicePrincipal.id() );
                 }
             }
 
@@ -237,5 +246,66 @@ public class AzureClient
         }
 
         return members;
+    }
+
+    protected AzureServicePrincipals getServicePrincipals( String id ) throws AzureException
+    {
+        if( accessToken == null )
+        {
+            throw new AzureException( "Authentication (login) has not been run" );
+        }
+
+        URI uri;
+
+        try
+        {
+            uri = new URI( "https://graph.microsoft.com/v1.0/groups/" + id + "/members/microsoft.graph.servicePrincipal" );
+        }
+        catch( URISyntaxException ex )
+        {
+            throw new AzureException( "Error formatting URI", ex );
+        }
+
+        var request = HttpRequest.newBuilder(uri).GET().headers( "Accept", "application/json", "Authorization", "Bearer " + accessToken ).build();
+
+        var response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+
+        // Expected return status OK
+        if( response.statusCode() != 200 )
+        {
+            throw new AzureException( "[Azure] Get Service Principals: Status " + response.statusCode() + " returned, expected 200" );
+        }
+
+        var servicePrincipals = new Gson().fromJson( response.body(), AzureServicePrincipals.class );
+
+        //
+        // Loop through any paged results
+        //
+
+        while( servicePrincipals.odataNextLink() != null )
+        {
+            try
+            {
+                uri = new URI( servicePrincipals.odataNextLink() );
+            }
+            catch( URISyntaxException ex )
+            {
+                throw new AzureException( "Error formatting URI", ex );
+            }
+
+            request = HttpRequest.newBuilder(uri).GET().headers( "Accept", "application/json", "Authorization", "Bearer " + accessToken ).build();
+
+            response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+
+            // Expected return status OK
+            if( response.statusCode() != 200 )
+            {
+                throw new AzureException( "[Azure] Get Members: Status " + response.statusCode() + " returned, expected 200" );
+            }
+
+            servicePrincipals = new Gson().fromJson( response.body(), AzureServicePrincipals.class ).append( servicePrincipals.value() );
+        }
+
+        return servicePrincipals;
     }
 }
