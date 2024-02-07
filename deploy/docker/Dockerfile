@@ -12,10 +12,12 @@
 # limitations under the License.
 #
 
-FROM registry.access.redhat.com/ubi9/openjdk-17
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 USER root
 RUN whoami
 
+RUN microdnf -y install shadow-utils
 RUN \
     set -xeu && \
     groupadd groupsync --gid 1000 && \
