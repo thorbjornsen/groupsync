@@ -22,6 +22,11 @@ public class AzureGroups
         return this.value;
     }
 
+    public AzureGroups value( AzureGroup[] value )
+    {
+        this.value = value; return this;
+    }
+
     public AzureGroups append( AzureGroup[] value )
     {
         // Increase the size of the member array and copy in the objects
